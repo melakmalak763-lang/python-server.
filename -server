@@ -1,0 +1,28 @@
+import os
+from flask import Flask, jsonify
+
+app = Flask(__name__)
+
+# هذا هو سكربتك الحقيقي (يمكنك تغييره لاحقاً)
+ORIGINAL_SCRIPT = """
+print("تم تحميل السكربت بنجاح من السيرفر!")
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "حماية",
+    Text = "السكربت يعمل!"
+})
+"""
+
+# مفتاح التشفير السري
+SECRET_KEY = 45
+
+def xor_encrypt(text, key):
+    return ''.join(chr(ord(c) ^ key) for c in text)
+
+@app.route('/get-script')
+def get_script():
+    encrypted = xor_encrypt(ORIGINAL_SCRIPT, SECRET_KEY)
+    return jsonify({"payload": encrypted})
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
